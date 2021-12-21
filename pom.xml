@@ -17,7 +17,19 @@
     <maven.compiler.target>1.8</maven.compiler.target>
   </properties>
 
+  <repositories>
+    <repository>
+      <id>github</id>
+      <url>https://maven.pkg.github.com/azzibom/swing-localizer</url>
+    </repository>
+  </repositories>
+
   <dependencies>
+    <dependency>
+      <groupId>by.azzibom.utils.gui.swing</groupId>
+      <artifactId>swing-localizer</artifactId>
+      <version>1.0.1</version>
+    </dependency>
     <dependency>
       <groupId>com.formdev</groupId>
       <artifactId>flatlaf</artifactId>

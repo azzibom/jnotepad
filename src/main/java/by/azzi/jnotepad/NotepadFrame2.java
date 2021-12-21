@@ -1,11 +1,12 @@
 package by.azzi.jnotepad;
 
+import by.azzi.jnotepad.actions.NewNotepadFrameAction;
+
 import javax.swing.*;
 import javax.swing.event.DocumentEvent;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import javax.swing.text.BadLocationException;
 import javax.swing.text.Document;
-import javax.swing.text.NumberFormatter;
 import javax.swing.text.PlainDocument;
 import javax.swing.undo.UndoManager;
 import java.awt.*;
@@ -21,6 +22,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Objects;
 
 public class NotepadFrame2 extends JFrame implements DocumentListener {
 
@@ -107,9 +109,7 @@ public class NotepadFrame2 extends JFrame implements DocumentListener {
             }
         });
 
-        final JMenuItem newNotepadFrameMenuItem = fileMenu.add("Новое окно");
-        newNotepadFrameMenuItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_N, InputEvent.CTRL_DOWN_MASK | InputEvent.SHIFT_DOWN_MASK));
-        newNotepadFrameMenuItem.addActionListener(e -> new NotepadFrame2().setVisible(true));
+        fileMenu.add(NewNotepadFrameAction.getInstance());
 
         final JMenuItem openMenuItem = fileMenu.add("Открыть...");
         openMenuItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_O, InputEvent.CTRL_DOWN_MASK));
@@ -236,30 +236,82 @@ public class NotepadFrame2 extends JFrame implements DocumentListener {
             }
         });
 
-        final JMenuItem findMenuItem = editMenu.add("Найти...");
-        findMenuItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_F, InputEvent.CTRL_DOWN_MASK));
-        findMenuItem.setEnabled(textArea.getSelectedText() != null);
-        textArea.addCaretListener(e -> findMenuItem.setEnabled(textArea.getSelectedText() != null));
-        findMenuItem.addActionListener(e -> {
-            final String search = textArea.getSelectedText();
-            // todo open find frame
-        });
-        // todo any find or replace menu
+//        final JMenuItem findMenuItem = editMenu.add("Найти...");
+//        findMenuItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_F, InputEvent.CTRL_DOWN_MASK));
+//        findMenuItem.setEnabled(!Objects.equals(textArea.getText(), ""));
+//        textArea.addCaretListener(e -> findMenuItem.setEnabled(!Objects.equals(textArea.getText(), ""))); // заменить на DocListener
+//        findMenuItem.addActionListener(e -> {
+//            final String search = textArea.getSelectedText();
+//            // todo open find frame
+//        });
+//
+//        final JMenuItem findNextMenuItem = editMenu.add("Найти далее");
+//        findNextMenuItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_F3, 0));
+//        findNextMenuItem.setEnabled(!Objects.equals(textArea.getText(), ""));
+//        textArea.addCaretListener(e -> findNextMenuItem.setEnabled(!Objects.equals(textArea.getText(), "")));
+//        findMenuItem.addActionListener(e -> {/*todo*/});
+//
+//        final JMenuItem findPrevMenuItem = editMenu.add("Найти далее");
+//        findPrevMenuItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_F3, InputEvent.SHIFT_DOWN_MASK));
+//        findPrevMenuItem.setEnabled(!Objects.equals(textArea.getText(), ""));
+//        textArea.addCaretListener(e -> findPrevMenuItem.setEnabled(!Objects.equals(textArea.getText(), "")));
+//        findPrevMenuItem.addActionListener(e -> {/*todo*/});
+//
+//        final JMenuItem replaceMenuItem = editMenu.add("Заменить...");
+//        replaceMenuItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_H, InputEvent.CTRL_DOWN_MASK));
+//        replaceMenuItem.addActionListener(e -> {/*todo*/});
 
         final JMenuItem moveToMenuItem = editMenu.add("Перейти...");
         moveToMenuItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_G, InputEvent.CTRL_DOWN_MASK));
         moveToMenuItem.addActionListener(e -> {
-            JOptionPane optionPane = new JOptionPane("");
+            final JDialog dialog = new JDialog(NotepadFrame2.this, "Переход на строку", Dialog.ModalityType.DOCUMENT_MODAL);
+            final JPanel root = new JPanel();
+            root.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
+            dialog.setContentPane(root);
+            dialog.setLayout(new GridBagLayout());
+            final GridBagConstraints gbc = new GridBagConstraints();
+            gbc.fill = GridBagConstraints.HORIZONTAL;
 
-            final int lineCount = textArea.getLineCount();
+            final JLabel label = new JLabel("Номер строки:");
+            gbc.gridx = 0;
+            gbc.gridy = 0;
+            gbc.insets = new Insets(5, 5, 2, 5);
+            dialog.add(label, gbc);
 
-            try {
+            final String curLineStr = String.valueOf(getCurrentLine() + 1);
 
-                final int value = Integer.parseInt(JOptionPane.showInputDialog(NotepadFrame2.this, "", textArea.getLineOfOffset(textArea.getCaretPosition())));
-                textArea.setCaretPosition(textArea.getLineStartOffset(value - 1));
-            } catch (BadLocationException ex) {
-                ex.printStackTrace();
-            }
+            final JTextField textField = new JTextField(curLineStr, 20);
+            gbc.gridx = 0;
+            gbc.gridy = 1;
+            gbc.insets = new Insets(2, 5, 2, 5);
+            dialog.add(textField, gbc);
+
+            final JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 10));
+            final JButton okBtn = new JButton("Переход");
+            dialog.getRootPane().setDefaultButton(okBtn);
+            okBtn.addActionListener(e12 -> {
+                try {
+                    textArea.setCaretPosition(textArea.getLineStartOffset(Integer.parseInt(textField.getText()) - 1));
+                    dialog.dispose();
+                } catch (BadLocationException | NumberFormatException ex) {
+                    JOptionPane.showMessageDialog(dialog, "Номер строки превышает общее число строк", APP_NAME + " - Переход на строку", JOptionPane.ERROR_MESSAGE);
+                    textField.setText(curLineStr);
+                }
+            });
+            final JButton cancelBtn = new JButton("Отмена");
+            cancelBtn.addActionListener(e1 -> dialog.dispose());
+
+            btnPanel.add(okBtn);
+            btnPanel.add(cancelBtn);
+            gbc.gridx = 0;
+            gbc.gridy = 2;
+            gbc.insets = new Insets(2, 0, 5, 0);
+            dialog.add(btnPanel, gbc);
+
+            dialog.pack();
+            dialog.setLocationRelativeTo(NotepadFrame2.this);
+            dialog.setResizable(false);
+            dialog.setVisible(true);
         });
 
         editMenu.addSeparator();
@@ -272,7 +324,27 @@ public class NotepadFrame2 extends JFrame implements DocumentListener {
         dateTimeMenuItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_F5, 0));
         dateTimeMenuItem.addActionListener(e -> textArea.replaceRange(LocalDateTime.now().format(DateTimeFormatter.ofPattern("HH:mm dd.MM.yyyy")), textArea.getSelectionStart(), textArea.getSelectionEnd()));
 
+        // == format menu
+        final JMenu formatMenu = menuBar.add(new JMenu("Формат"));
+
+        JMenuItem wordWrapMenuItem = formatMenu.add(new JCheckBoxMenuItem("Перенос по словам"));
+        wordWrapMenuItem.setSelected(textArea.getLineWrap() && textArea.getWrapStyleWord());
+        wordWrapMenuItem.addActionListener(e -> {
+            textArea.setLineWrap(wordWrapMenuItem.isSelected());
+            textArea.setWrapStyleWord(wordWrapMenuItem.isSelected());
+            moveToMenuItem.setEnabled(!wordWrapMenuItem.isSelected());
+        });
+
         return menuBar;
+    }
+
+    private int getCurrentLine() {
+        try {
+            return textArea.getLineOfOffset(textArea.getCaretPosition());
+        } catch (BadLocationException ex) {
+            ex.printStackTrace();
+            return 0;
+        }
     }
 
 
