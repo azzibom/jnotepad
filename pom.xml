@@ -5,12 +5,11 @@
   <modelVersion>4.0.0</modelVersion>
 
   <groupId>by.azzi</groupId>
-  <artifactId>jntepad</artifactId>
-  <version>1.0-SNAPSHOT</version>
+  <artifactId>jnotepad</artifactId>
+  <version>0.1</version>
 
-  <name>jntepad</name>
-  <!-- FIXME change it to the project's website -->
-  <url>http://www.example.com</url>
+  <name>jnotepad</name>
+  <description>java clone windows notepad</description>
 
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
