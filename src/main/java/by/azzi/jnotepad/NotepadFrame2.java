@@ -1,7 +1,10 @@
 package by.azzi.jnotepad;
 
 import by.azzi.jnotepad.actions.NewNotepadFrameAction;
+import by.azzi.jnotepad.listeners.DocumentListener;
+import by.azzi.jnotepad.listeners.WindowListener;
 
+import javax.imageio.ImageIO;
 import javax.swing.*;
 import javax.swing.event.DocumentEvent;
 import javax.swing.filechooser.FileNameExtensionFilter;
@@ -13,38 +16,60 @@ import java.awt.*;
 import java.awt.datatransfer.Clipboard;
 import java.awt.datatransfer.DataFlavor;
 import java.awt.event.*;
+import java.awt.print.PrinterException;
 import java.beans.PropertyChangeSupport;
 import java.io.*;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
 import java.util.prefs.Preferences;
 
 public class NotepadFrame2 extends JFrame implements DocumentListener, WindowListener {
 
     private static final Preferences P = Preferences.userNodeForPackage(NotepadFrame2.class);
+    private static final List<Image> icons = new ArrayList<>();
+    static {
+        try {
+            icons.add(ImageIO.read(ClassLoader.getSystemResource("./img/icons8-spiral-notepad-48.png")));
+            icons.add(ImageIO.read(ClassLoader.getSystemResource("./img/icons8-spiral-notepad-96.png")));
+        } catch (IOException ex) {
+            ex.printStackTrace();
+        }
+    }
+
     private static final String APP_NAME = "Блокнот";
     private static final String DEFAULT_FILE_NAME = "Безымянный";
 
     private final UndoManager undoManager = new UndoManager();
-
     {
         undoManager.setLimit(1);
     }
 
     private final PropertyChangeSupport support = new PropertyChangeSupport(this);
-    private float fontScale = 1.0f;
     private final JTextArea textArea = new JTextArea();
+    private final Font docFont = textArea.getFont();
+    private float fontScale = 0;
 
     {
+        support.addPropertyChangeListener("fontScale", evt -> {
+            final Font font = textArea.getFont();
+            textArea.setFont(font.deriveFont(docFont.getSize() + getFontScale()));
+        });
+
         support.addPropertyChangeListener("wordWrap", evt -> {
             textArea.setWrapStyleWord((Boolean) evt.getNewValue());
             textArea.setLineWrap((Boolean) evt.getNewValue());
         });
 
         support.addPropertyChangeListener("documentChanged", evt -> updateTitle());
-        textArea.addPropertyChangeListener("document", evt -> ((Document) evt.getNewValue()).addUndoableEditListener(undoManager));
+        textArea.addPropertyChangeListener("document", evt -> {
+            undoManager.discardAllEdits();
+            ((Document) evt.getNewValue()).addUndoableEditListener(undoManager);
+        });
         support.addPropertyChangeListener("documentName", evt -> updateTitle());
 
         textArea.getDocument().addDocumentListener(this);
@@ -62,10 +87,12 @@ public class NotepadFrame2 extends JFrame implements DocumentListener, WindowLis
     public NotepadFrame2() throws HeadlessException {
         super(DEFAULT_FILE_NAME + " - " + APP_NAME);
 
-        setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
+        setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
         setPreferredSize(new Dimension(600, 400));
-//        setIconImages(icons);
+        setIconImages(icons);
         setJMenuBar(menuBar());
+
+        addWindowListener(this);
 
         final JScrollPane scrollPane = new JScrollPane(textArea);
         scrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_ALWAYS);
@@ -180,11 +207,23 @@ public class NotepadFrame2 extends JFrame implements DocumentListener, WindowLis
             write(saveFileChooser.getSelectedFile());
         });
         fileMenu.addSeparator();
-        // todo add pageParamsMenuItem
-        // todo add printMenuItem
+
+        final JMenuItem printMenuItem = fileMenu.add("Печать");
+        printMenuItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_P, InputEvent.CTRL_DOWN_MASK));
+        printMenuItem.addActionListener(e -> {
+            try {
+                final JTextArea printTextArea = new JTextArea();
+                printTextArea.setDocument(textArea.getDocument());
+                printTextArea.setFont(docFont);
+                printTextArea.print();
+            } catch (PrinterException ex) {
+                JOptionPane.showMessageDialog(NotepadFrame2.this, "Ошибка печати", "Ошибка", JOptionPane.ERROR_MESSAGE);
+            }
+        });
+
         fileMenu.addSeparator();
         final JMenuItem exitMenuItem = fileMenu.add("Выход");
-        exitMenuItem.addActionListener(e -> NotepadFrame2.this.dispose());
+        exitMenuItem.addActionListener(e -> NotepadFrame2.this.processWindowEvent(new WindowEvent(NotepadFrame2.this, WindowEvent.WINDOW_CLOSING)));
 
         // == edit menu
         final JMenu editMenu = menuBar.add(new JMenu("Правка"));
@@ -240,30 +279,30 @@ public class NotepadFrame2 extends JFrame implements DocumentListener, WindowLis
             }
         });
 
-//        final JMenuItem findMenuItem = editMenu.add("Найти...");
-//        findMenuItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_F, InputEvent.CTRL_DOWN_MASK));
-//        findMenuItem.setEnabled(!Objects.equals(textArea.getText(), ""));
-//        textArea.addCaretListener(e -> findMenuItem.setEnabled(!Objects.equals(textArea.getText(), ""))); // заменить на DocListener
-//        findMenuItem.addActionListener(e -> {
-//            final String search = textArea.getSelectedText();
-//            // todo open find frame
-//        });
-//
-//        final JMenuItem findNextMenuItem = editMenu.add("Найти далее");
-//        findNextMenuItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_F3, 0));
-//        findNextMenuItem.setEnabled(!Objects.equals(textArea.getText(), ""));
-//        textArea.addCaretListener(e -> findNextMenuItem.setEnabled(!Objects.equals(textArea.getText(), "")));
-//        findMenuItem.addActionListener(e -> {/*todo*/});
-//
-//        final JMenuItem findPrevMenuItem = editMenu.add("Найти далее");
-//        findPrevMenuItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_F3, InputEvent.SHIFT_DOWN_MASK));
-//        findPrevMenuItem.setEnabled(!Objects.equals(textArea.getText(), ""));
-//        textArea.addCaretListener(e -> findPrevMenuItem.setEnabled(!Objects.equals(textArea.getText(), "")));
-//        findPrevMenuItem.addActionListener(e -> {/*todo*/});
-//
-//        final JMenuItem replaceMenuItem = editMenu.add("Заменить...");
-//        replaceMenuItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_H, InputEvent.CTRL_DOWN_MASK));
-//        replaceMenuItem.addActionListener(e -> {/*todo*/});
+        final JMenuItem findMenuItem = editMenu.add("Найти... (todo)");
+        findMenuItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_F, InputEvent.CTRL_DOWN_MASK));
+        findMenuItem.setEnabled(!Objects.equals(textArea.getText(), ""));
+        textArea.addCaretListener(e -> findMenuItem.setEnabled(!Objects.equals(textArea.getText(), ""))); // заменить на DocListener
+        findMenuItem.addActionListener(e -> {
+            final String search = textArea.getSelectedText();
+            // todo open find frame
+        });
+
+        final JMenuItem findNextMenuItem = editMenu.add("Найти далее (todo)");
+        findNextMenuItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_F3, 0));
+        findNextMenuItem.setEnabled(!Objects.equals(textArea.getText(), ""));
+        textArea.addCaretListener(e -> findNextMenuItem.setEnabled(!Objects.equals(textArea.getText(), "")));
+        findMenuItem.addActionListener(e -> {/*todo*/});
+
+        final JMenuItem findPrevMenuItem = editMenu.add("Найти далее (todo)");
+        findPrevMenuItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_F3, InputEvent.SHIFT_DOWN_MASK));
+        findPrevMenuItem.setEnabled(!Objects.equals(textArea.getText(), ""));
+        textArea.addCaretListener(e -> findPrevMenuItem.setEnabled(!Objects.equals(textArea.getText(), "")));
+        findPrevMenuItem.addActionListener(e -> {/*todo*/});
+
+        final JMenuItem replaceMenuItem = editMenu.add("Заменить... (todo)");
+        replaceMenuItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_H, InputEvent.CTRL_DOWN_MASK));
+        replaceMenuItem.addActionListener(e -> {/*todo*/});
 
         final JMenuItem moveToMenuItem = editMenu.add("Перейти...");
         moveToMenuItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_G, InputEvent.CTRL_DOWN_MASK));
@@ -345,20 +384,36 @@ public class NotepadFrame2 extends JFrame implements DocumentListener, WindowLis
         final JMenu scaleMenuItem = (JMenu) viewMenu.add(new JMenu("Масштаб"));
 
         final JMenuItem zoomInMenuItem = scaleMenuItem.add("Увеличить");
+        final ActionListener zoomInAction = e -> setFontScale(getFontScale() + 1);
         zoomInMenuItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_PLUS, InputEvent.CTRL_DOWN_MASK));
-        zoomInMenuItem.addActionListener(e -> {
-            fontScale += 1.0f;
-            textArea.repaint();
-            repaint();
-        });
+        textArea.registerKeyboardAction(zoomInAction,
+                KeyStroke.getKeyStroke(KeyEvent.VK_ADD, InputEvent.CTRL_DOWN_MASK), JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT);
+        textArea.registerKeyboardAction(zoomInAction,
+                KeyStroke.getKeyStroke(KeyEvent.VK_EQUALS, InputEvent.CTRL_DOWN_MASK), JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT);
+        zoomInMenuItem.addActionListener(zoomInAction);
 
         final JMenuItem zoomOutMenuItem = scaleMenuItem.add("Уменьшить");
         zoomOutMenuItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_MINUS, InputEvent.CTRL_DOWN_MASK));
-        zoomOutMenuItem.addActionListener(e -> { });
+        final ActionListener zoomOutAction = e -> setFontScale(getFontScale() - 1);
+        textArea.registerKeyboardAction(zoomOutAction,
+                KeyStroke.getKeyStroke(KeyEvent.VK_SUBTRACT, InputEvent.CTRL_DOWN_MASK), JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT);
+        zoomOutMenuItem.addActionListener(zoomOutAction);
 
         final JMenuItem restoreScaleMenuItem = scaleMenuItem.add("Восстановить масштаб по умолчанию");
         restoreScaleMenuItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_0, InputEvent.CTRL_DOWN_MASK));
-        restoreScaleMenuItem.addActionListener(e -> { });
+        final ActionListener restoreScaleAction = e -> setFontScale(0);
+        textArea.registerKeyboardAction(restoreScaleAction,
+                KeyStroke.getKeyStroke(KeyEvent.VK_NUMPAD0, InputEvent.CTRL_DOWN_MASK), JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT);
+        restoreScaleMenuItem.addActionListener(restoreScaleAction);
+
+        final JMenuItem statusBar = viewMenu.add(new JCheckBoxMenuItem("Строка состояния", true));
+        statusBar.addActionListener(e -> {/*todo*/});
+
+        // == help menu
+        final JMenu helpMenu = menuBar.add(new JMenu("Справка"));
+        JMenuItem aboutMenuItem = helpMenu.add("О программе");
+        aboutMenuItem.addActionListener(e -> JOptionPane.showMessageDialog(NotepadFrame2.this, APP_NAME, APP_NAME + ": Сведенья", JOptionPane.INFORMATION_MESSAGE, new ImageIcon(icons.get(1))));
+
         return menuBar;
     }
 
@@ -403,7 +458,7 @@ public class NotepadFrame2 extends JFrame implements DocumentListener, WindowLis
     }
 
     private void updateTitle() {
-        StringBuilder title = new StringBuilder();
+        final StringBuilder title = new StringBuilder();
         if (documentChanged) {
             title.append("*");
         }
@@ -462,7 +517,48 @@ public class NotepadFrame2 extends JFrame implements DocumentListener, WindowLis
     }
 
     @Override
+    public void windowClosing(WindowEvent e) {
+        System.out.println("windowClosing");
+        if (documentChanged) {
+            final int confirmAnswer = JOptionPane.showConfirmDialog(NotepadFrame2.this, "Вы хотите сохранить изменения в файле \"" + documentName + "\"?");
+            switch (confirmAnswer) {
+                default: {
+                    System.out.println("confirmAnswer: " + confirmAnswer);
+                }
+                case JOptionPane.CANCEL_OPTION: {
+                    return;
+                }
+                case JOptionPane.YES_OPTION: {
+                    File file = NotepadFrame2.this.file;
+                    if (file == null) {
+                        final JFileChooser saveFileChooser = getSaveFileChooser();
+                        final int chooseAnswer = saveFileChooser.showSaveDialog(NotepadFrame2.this);
+                        if (chooseAnswer != JFileChooser.APPROVE_OPTION) {
+                            return;
+                        }
+                        file = saveFileChooser.getSelectedFile();
+                    }
+                    write(file);
+                }
+                case JOptionPane.NO_OPTION:
+            }
+        }
+        dispose();
+    }
+
+    @Override
     public void windowClosed(WindowEvent e) {
+        System.out.println("windowClosed");
         P.putBoolean("wordWrap", getWordWrap());
+    }
+
+    private void setFontScale(float scale) {
+        float old = this.fontScale;
+        this.fontScale = scale;
+        support.firePropertyChange("fontScale", old, scale);
+    }
+
+    private float getFontScale() {
+        return fontScale;
     }
 }

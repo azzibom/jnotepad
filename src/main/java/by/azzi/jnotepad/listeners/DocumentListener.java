@@ -1,4 +1,4 @@
-package by.azzi.jnotepad;
+package by.azzi.jnotepad.listeners;
 
 import javax.swing.event.DocumentEvent;
 

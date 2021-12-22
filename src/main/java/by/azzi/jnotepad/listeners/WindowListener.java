@@ -1,4 +1,4 @@
-package by.azzi.jnotepad;
+package by.azzi.jnotepad.listeners;
 
 import java.awt.event.WindowEvent;
 
