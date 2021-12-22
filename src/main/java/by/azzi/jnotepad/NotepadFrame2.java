@@ -12,20 +12,18 @@ import javax.swing.undo.UndoManager;
 import java.awt.*;
 import java.awt.datatransfer.Clipboard;
 import java.awt.datatransfer.DataFlavor;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
-import java.awt.event.InputEvent;
-import java.awt.event.KeyEvent;
+import java.awt.event.*;
 import java.beans.PropertyChangeSupport;
 import java.io.*;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.Objects;
+import java.util.prefs.Preferences;
 
-public class NotepadFrame2 extends JFrame implements DocumentListener {
+public class NotepadFrame2 extends JFrame implements DocumentListener, WindowListener {
 
+    private static final Preferences P = Preferences.userNodeForPackage(NotepadFrame2.class);
     private static final String APP_NAME = "Блокнот";
     private static final String DEFAULT_FILE_NAME = "Безымянный";
 
@@ -36,9 +34,15 @@ public class NotepadFrame2 extends JFrame implements DocumentListener {
     }
 
     private final PropertyChangeSupport support = new PropertyChangeSupport(this);
+    private float fontScale = 1.0f;
     private final JTextArea textArea = new JTextArea();
 
     {
+        support.addPropertyChangeListener("wordWrap", evt -> {
+            textArea.setWrapStyleWord((Boolean) evt.getNewValue());
+            textArea.setLineWrap((Boolean) evt.getNewValue());
+        });
+
         support.addPropertyChangeListener("documentChanged", evt -> updateTitle());
         textArea.addPropertyChangeListener("document", evt -> ((Document) evt.getNewValue()).addUndoableEditListener(undoManager));
         support.addPropertyChangeListener("documentName", evt -> updateTitle());
@@ -327,14 +331,34 @@ public class NotepadFrame2 extends JFrame implements DocumentListener {
         // == format menu
         final JMenu formatMenu = menuBar.add(new JMenu("Формат"));
 
-        JMenuItem wordWrapMenuItem = formatMenu.add(new JCheckBoxMenuItem("Перенос по словам"));
-        wordWrapMenuItem.setSelected(textArea.getLineWrap() && textArea.getWrapStyleWord());
+        final JMenuItem wordWrapMenuItem = formatMenu.add(new JCheckBoxMenuItem("Перенос по словам"));
+        wordWrapMenuItem.setSelected(getWordWrap());
         wordWrapMenuItem.addActionListener(e -> {
-            textArea.setLineWrap(wordWrapMenuItem.isSelected());
-            textArea.setWrapStyleWord(wordWrapMenuItem.isSelected());
+            setWordWrap(wordWrapMenuItem.isSelected());
             moveToMenuItem.setEnabled(!wordWrapMenuItem.isSelected());
         });
 
+        // todo add choose font menu
+
+        // == view menu
+        final JMenu viewMenu = menuBar.add(new JMenu("Вид"));
+        final JMenu scaleMenuItem = (JMenu) viewMenu.add(new JMenu("Масштаб"));
+
+        final JMenuItem zoomInMenuItem = scaleMenuItem.add("Увеличить");
+        zoomInMenuItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_PLUS, InputEvent.CTRL_DOWN_MASK));
+        zoomInMenuItem.addActionListener(e -> {
+            fontScale += 1.0f;
+            textArea.repaint();
+            repaint();
+        });
+
+        final JMenuItem zoomOutMenuItem = scaleMenuItem.add("Уменьшить");
+        zoomOutMenuItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_MINUS, InputEvent.CTRL_DOWN_MASK));
+        zoomOutMenuItem.addActionListener(e -> { });
+
+        final JMenuItem restoreScaleMenuItem = scaleMenuItem.add("Восстановить масштаб по умолчанию");
+        restoreScaleMenuItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_0, InputEvent.CTRL_DOWN_MASK));
+        restoreScaleMenuItem.addActionListener(e -> { });
         return menuBar;
     }
 
@@ -423,5 +447,22 @@ public class NotepadFrame2 extends JFrame implements DocumentListener {
             saveFileChooser.setFileFilter(new FileNameExtensionFilter("Текстовые документы (*.txt)", "txt"));
         }
         return saveFileChooser;
+    }
+
+    boolean wordWrap = P.getBoolean("wordWrap", false);
+
+    private void setWordWrap(boolean wrap) {
+        boolean old = wordWrap;
+        wordWrap = wrap;
+        support.firePropertyChange("wordWrap", old, wrap);
+    }
+
+    private boolean getWordWrap() {
+        return wordWrap;
+    }
+
+    @Override
+    public void windowClosed(WindowEvent e) {
+        P.putBoolean("wordWrap", getWordWrap());
     }
 }
