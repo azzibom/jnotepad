@@ -15,10 +15,6 @@ public enum Theme {
     private static boolean save = true;
     private static Theme current;
 
-    public static Theme getCurrent() {
-        return current;
-    }
-
     public static void setupTheme() {
         save = false;
         try {
@@ -50,13 +46,5 @@ public enum Theme {
             default:
                 return new FlatLightLaf();
         }
-    }
-
-    public static boolean isCurrentDark() {
-        return current == DARK;
-    }
-
-    public static boolean isLight() {
-        return current == LIGHT;
     }
 }
