@@ -28,8 +28,10 @@ import java.net.URISyntaxException;
 import java.text.MessageFormat;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.*;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
+import java.util.ResourceBundle;
 import java.util.prefs.Preferences;
 
 public class JNotepad extends JFrame implements DocumentListener, WindowListener, Runnable {
@@ -328,6 +330,28 @@ public class JNotepad extends JFrame implements DocumentListener, WindowListener
 
         // == view menu
         final JMenu viewMenu = menuBar.add(new JMenu(BUNDLE.getString("menuBar.view")));
+
+        final JMenu themeMenuItem = (JMenu) viewMenu.add(new JMenu(BUNDLE.getString("menuBar.view.theme")));
+        final JRadioButtonMenuItem lightMenuItem = new JRadioButtonMenuItem("Светлая", !Theme.isDark());
+        lightMenuItem.addActionListener(e -> Theme.setupTheme(Theme.LIGHT));
+        final JRadioButtonMenuItem darkMenuItem = new JRadioButtonMenuItem("Темная", Theme.isDark());
+        darkMenuItem.addActionListener(e -> Theme.setupTheme(Theme.DARK));
+        final ButtonGroup themeBtnGroup = new ButtonGroup();
+        themeBtnGroup.add(lightMenuItem);
+        themeBtnGroup.add(darkMenuItem);
+        PREF.addPreferenceChangeListener(evt -> {
+            if (!Theme.THEME_PROPERTY_NAME.equals(evt.getKey())) {
+                return;
+            }
+            if (Theme.isDark()) {
+                darkMenuItem.setSelected(true);
+            } else {
+                lightMenuItem.setSelected(true);
+            }
+        });
+        themeMenuItem.add(lightMenuItem);
+        themeMenuItem.add(darkMenuItem);
+
         final JMenu scaleMenuItem = (JMenu) viewMenu.add(new JMenu(BUNDLE.getString("menuBar.view.scale")));
 
         final JMenuItem zoomInMenuItem = scaleMenuItem.add(BUNDLE.getString("menuBar.view.scale.zoomIn"));

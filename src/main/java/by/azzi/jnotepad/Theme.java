@@ -9,7 +9,7 @@ import java.util.prefs.Preferences;
 public enum Theme {
     LIGHT, DARK;
 
-    private static final String THEME_PROPERTY_NAME = "theme";
+    public static final String THEME_PROPERTY_NAME = "theme";
     private static final Preferences p = Preferences.userNodeForPackage(Theme.class);
 
     private static boolean save = true;
@@ -36,6 +36,10 @@ public enum Theme {
         if (save) {
             p.put(THEME_PROPERTY_NAME, theme.name());
         }
+    }
+
+    public static boolean isDark() {
+        return current == DARK;
     }
 
     private FlatLaf getLaf() {
