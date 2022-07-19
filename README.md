@@ -1,2 +1,2 @@
 # jnotepad
-clone windows Notepad
+clone windows Notepad on Swing
