@@ -1,8 +1,8 @@
 package by.azzi.jnotepad;
 
+import by.azzi.gui.swing.localizer.SwingLocalizer;
 import by.azzi.jnotepad.listeners.DocumentListener;
 import by.azzi.jnotepad.listeners.WindowListener;
-import by.azzibom.utils.gui.swing.SwingLocalizer;
 
 import javax.imageio.ImageIO;
 import javax.swing.*;
@@ -62,9 +62,7 @@ public class JNotepad extends JFrame implements DocumentListener, WindowListener
     private static final String APP_NAME = BUNDLE.getString("app.name");
     private static final String DEFAULT_FILE_NAME = BUNDLE.getString("document.defaultName");
 
-    private static final ActionListener NEW_NOTEPAD_FRAME_ACTION_LISTENER = e -> SwingUtilities.invokeLater(new JNotepad());
-
-    private final PropertyChangeSupport support = new PropertyChangeSupport(this);
+    private final PropertyChangeSupport pcs = new PropertyChangeSupport(this);
     private final JTextArea textArea = new JTextArea();
     private final UndoManager undoManager = new UndoManager();
 
@@ -84,14 +82,14 @@ public class JNotepad extends JFrame implements DocumentListener, WindowListener
         setJMenuBar(createMenuBar());
 
         addWindowListener(this);
-        support.addPropertyChangeListener(FONT_SCALE_PROPERTY, evt -> textArea.setFont(docFont.deriveFont(docFont.getSize() + fontScale)));
-        support.addPropertyChangeListener(WORD_WRAP_PROPERTY, evt -> {
+        pcs.addPropertyChangeListener(FONT_SCALE_PROPERTY, evt -> textArea.setFont(docFont.deriveFont(docFont.getSize() + fontScale)));
+        pcs.addPropertyChangeListener(WORD_WRAP_PROPERTY, evt -> {
             Boolean wrap = (Boolean) evt.getNewValue();
             textArea.setWrapStyleWord(wrap);
             textArea.setLineWrap(wrap);
         });
-        support.addPropertyChangeListener(DOCUMENT_CHANGED_PROPERTY, evt -> updateTitle());
-        support.addPropertyChangeListener(DOCUMENT_NAME_PROPERTY, evt -> updateTitle());
+        pcs.addPropertyChangeListener(DOCUMENT_CHANGED_PROPERTY, evt -> updateTitle());
+        pcs.addPropertyChangeListener(DOCUMENT_NAME_PROPERTY, evt -> updateTitle());
 
         textArea.getDocument().addUndoableEditListener(undoManager);
         textArea.addPropertyChangeListener(DOCUMENT_PROPERTY, evt -> {
@@ -131,7 +129,10 @@ public class JNotepad extends JFrame implements DocumentListener, WindowListener
 
         final JMenuItem newNotepadMenuItem = fileMenu.add(BUNDLE.getString("menuBar.file.newFrame"));
         newNotepadMenuItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_N, InputEvent.CTRL_DOWN_MASK | InputEvent.SHIFT_DOWN_MASK));
-        newNotepadMenuItem.addActionListener(NEW_NOTEPAD_FRAME_ACTION_LISTENER);
+        newNotepadMenuItem.addActionListener(e -> {
+            // todo запуск нового процесса
+            SwingUtilities.invokeLater(new JNotepad());
+        });
 
         final JMenuItem openMenuItem = fileMenu.add(BUNDLE.getString("menuBar.file.open"));
         openMenuItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_O, InputEvent.CTRL_DOWN_MASK));
@@ -140,7 +141,7 @@ public class JNotepad extends JFrame implements DocumentListener, WindowListener
                 return;
             }
 
-            final JFileChooser openFileChooser = getFileChooser();
+            final JFileChooser openFileChooser = createFileChooser();
             final int answer = openFileChooser.showOpenDialog(JNotepad.this);
             if (answer != JFileChooser.APPROVE_OPTION) {
                 return;
@@ -179,7 +180,7 @@ public class JNotepad extends JFrame implements DocumentListener, WindowListener
         final JMenuItem undoMenuItem = editMenu.add(BUNDLE.getString("menuBar.edit.undo"));
         undoMenuItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_Z, InputEvent.CTRL_DOWN_MASK));
         undoMenuItem.setEnabled(false);
-        support.addPropertyChangeListener(DOCUMENT_CHANGED_PROPERTY, evt -> undoMenuItem.setEnabled(true));
+        pcs.addPropertyChangeListener(DOCUMENT_CHANGED_PROPERTY, evt -> undoMenuItem.setEnabled(true));
         textArea.addPropertyChangeListener(DOCUMENT_PROPERTY, evt -> undoMenuItem.setEnabled(false));
         undoMenuItem.addActionListener(e -> {
             if (undoManager.canUndoOrRedo()) {
@@ -397,7 +398,6 @@ public class JNotepad extends JFrame implements DocumentListener, WindowListener
         }
     }
 
-
     private void setFile(File file) {
         this.file = file;
         if (file == null) {
@@ -412,11 +412,10 @@ public class JNotepad extends JFrame implements DocumentListener, WindowListener
         }
     }
 
-
     private void setDocumentChanged(boolean changed) {
         boolean old = documentChanged;
         this.documentChanged = changed;
-        support.firePropertyChange(DOCUMENT_CHANGED_PROPERTY, old, documentChanged);
+        pcs.firePropertyChange(DOCUMENT_CHANGED_PROPERTY, old, documentChanged);
     }
 
     private void updateTitle() {
@@ -431,21 +430,26 @@ public class JNotepad extends JFrame implements DocumentListener, WindowListener
     private void setDocumentName(String documentName) {
         String old = this.documentName;
         this.documentName = documentName;
-        support.firePropertyChange(DOCUMENT_NAME_PROPERTY, old, documentName);
+        pcs.firePropertyChange(DOCUMENT_NAME_PROPERTY, old, documentName);
     }
 
+    /**
+     * установить/убрать, что бы слова помещались на экране
+     * */
     private void setWordWrap(boolean wrap) {
         boolean old = wordWrap;
         wordWrap = wrap;
-        support.firePropertyChange(WORD_WRAP_PROPERTY, old, wrap);
+        pcs.firePropertyChange(WORD_WRAP_PROPERTY, old, wrap);
     }
 
+    /**
+     * установить масштаб шрифта
+     * */
     private void setFontScale(float scale) {
         float old = this.fontScale;
         this.fontScale = scale;
-        support.firePropertyChange(FONT_SCALE_PROPERTY, old, scale);
+        pcs.firePropertyChange(FONT_SCALE_PROPERTY, old, scale);
     }
-
 
     // == ==
 
@@ -480,7 +484,7 @@ public class JNotepad extends JFrame implements DocumentListener, WindowListener
     private boolean saveToFile(boolean choose) {
         File localFile = this.file;
         if (choose || Objects.isNull(this.file)) {
-            final JFileChooser saveFileChooser = getApproveFileChooser(this);
+            final JFileChooser saveFileChooser = createApprovableFileChooser(this);
             final int chooseAnswer = saveFileChooser.showSaveDialog(this);
             if (chooseAnswer != JFileChooser.APPROVE_OPTION) {
                 return false;
@@ -527,7 +531,7 @@ public class JNotepad extends JFrame implements DocumentListener, WindowListener
     /**
      * вернем JFileChooser с подтверждением перезаписи файла
      */
-    private static JFileChooser getApproveFileChooser(Component parentComponent) {
+    private static JFileChooser createApprovableFileChooser(Component parentComponent) {
         final JFileChooser fileChooser = new JFileChooser() {
             @Override
             public void approveSelection() {
@@ -547,7 +551,7 @@ public class JNotepad extends JFrame implements DocumentListener, WindowListener
         return fileChooser;
     }
 
-    private static JFileChooser getFileChooser() {
+    private static JFileChooser createFileChooser() {
         final JFileChooser fileChooser = new JFileChooser();
         fileChooser.setFileFilter(TXT_FILE_FILTER);
         return fileChooser;
